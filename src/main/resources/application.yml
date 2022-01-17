@@ -1,0 +1,22 @@
+server:
+  port: 8080
+  http2:
+    enabled: true
+
+grpc:
+  server.port: 9090
+
+
+spring:
+  cloud:
+    stream:
+#      function:
+#        definition: anyStatusChangedConsumer
+      default:
+        group: ${spring.application.name}
+
+      bindings:
+        topicProto-ou-0:
+          destination: topic-proto
+
+

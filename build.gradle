@@ -1,0 +1,135 @@
+plugins {
+    id 'java'
+    id 'idea'
+    id 'application'
+
+    id 'org.springframework.boot' version '2.6.2'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id 'org.springframework.experimental.aot' version '0.11.1'
+
+    id 'com.google.protobuf' version '0.8.18'
+}
+
+group = 'com.github.eltonsandre.sample'
+version = '0.0.1-SNAPSHOT'
+
+sourceCompatibility = JavaVersion.VERSION_17
+targetCompatibility = JavaVersion.VERSION_17
+
+compileTestJava.options.setEncoding('UTF-8')
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    maven { url 'https://repo.spring.io/release' }
+    mavenCentral()
+}
+
+ext {
+    springCloudVersion = '2021.0.0'
+    protobufVersion = '3.19.1'
+    grpcVersion = '1.43.2'
+    lombokMapstructBinding = '0.2.0'
+    mapstructVersion = '1.4.2.Final'
+    testcontainersVersion = '1.16.0'
+}
+
+dependencies {
+
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor',
+            "org.mapstruct:mapstruct-processor:$mapstructVersion",
+            "org.projectlombok:lombok-mapstruct-binding:$lombokMapstructBinding"
+
+    ['annotationProcessor', 'compileOnly', 'testAnnotationProcessor', 'testCompileOnly']
+            .each { conf -> add(conf, 'org.projectlombok:lombok') }
+
+    implementation "org.mapstruct:mapstruct:$mapstructVersion"
+
+    implementation "io.grpc:grpc-protobuf:${grpcVersion}",
+            "io.grpc:grpc-stub:${grpcVersion}",
+            'net.devh:grpc-server-spring-boot-starter:2.13.1.RELEASE'
+
+    implementation 'org.springframework.boot:spring-boot-starter-webflux',
+            'io.projectreactor.addons:reactor-extra',
+            'io.projectreactor.kafka:reactor-kafka',
+            'org.apache.kafka:kafka-streams',
+            'org.springframework.cloud:spring-cloud-stream',
+            'org.springframework.cloud:spring-cloud-stream-binder-kafka-streams'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test',
+            'io.projectreactor:reactor-test',
+            "io.grpc:grpc-testing:${grpcVersion}"
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        exceptionFormat = 'full'
+        showCauses = true
+        showExceptions = true
+        showStackTraces = true
+        it.events('passed', 'skipped', 'failed')
+
+        it.debug { dbg -> dbg.events('started', 'failed', 'passed', 'skipped') }
+    }
+}
+springBoot {
+    buildInfo()
+}
+
+bootBuildImage {
+    builder = 'paketobuildpacks/builder:tiny'
+    environment = ['BP_NATIVE_IMAGE': 'true']
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+    }
+    generatedFilesBaseDir = "$projectDir/src/generated"
+    clean {
+        delete generatedFilesBaseDir
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+        }
+    }
+}
+
+//idea {
+//    module {
+//        sourceDirs += file("src/generated/main/java")
+//        sourceDirs += file("src/generated/main/grpc")
+//        generatedSourceDirs += file("src/generated/main/java")
+//        generatedSourceDirs += file("src/generated/main/grpc")
+//    }
+//}
+
+compileJava {
+    options.setFork(true)
+    options.setEncoding('UTF-8')
+    options.compilerArgs += ['-parameters', '-Amapstruct.defaultComponentModel=spring', '-Xlint:unchecked', '-Xlint:deprecation']
+
+    dependsOn(processResources)
+}
+
+wrapper() {
+    gradleVersion = '7.3.3'
+    distributionUrl = distributionUrl.replace('bin', 'all')
+}
